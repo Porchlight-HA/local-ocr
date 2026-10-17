@@ -24,6 +24,14 @@ class ModelError(Exception):
     """Loading the OCR models failed."""
 
 
+class OutOfMemory(ModelError):
+    """Inference ran out of memory. The model stays loaded; the engine does not enter the error state."""
+
+    def __init__(self) -> None:
+        # Fixed text: the underlying exception's message is never passed on.
+        super().__init__("out of memory: the image needed more memory than is available")
+
+
 @dataclass
 class Block:
     text: str
@@ -33,6 +41,7 @@ class Block:
 
 
 def _is_oom(exc: BaseException) -> bool:
+    """MemoryError, or an onnxruntime allocation failure (its message mentions "alloc")."""
     return isinstance(exc, MemoryError) or "alloc" in str(exc).lower()
 
 
@@ -49,6 +58,11 @@ class OcrEngine:
         self.state: State = "unloaded"
         self.last_error: str | None = None
         self._model_info: list[dict] | None = None
+
+    @property
+    def max_side(self) -> int:
+        """Longest side used for inference; bigger images are downscaled first."""
+        return self._max_side
 
     # -- models -------------------------------------------------------------
     def model_info(self) -> list[dict]:
@@ -134,6 +148,11 @@ class OcrEngine:
                 except asyncio.CancelledError:
                     # Keep the lock until the worker thread is done so inferences never overlap.
                     await asyncio.wait([work])
+                    raise
+                except Exception as exc:
+                    if _is_oom(exc):
+                        _LOGGER.error("inference ran out of memory (%s)", type(exc).__name__)
+                        raise OutOfMemory() from None
                     raise
             finally:
                 if self._ocr is not None:
