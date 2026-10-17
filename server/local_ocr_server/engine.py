@@ -5,7 +5,6 @@ import asyncio
 import hashlib
 import logging
 import os
-import time
 from dataclasses import dataclass
 from importlib.metadata import version
 from typing import Literal
@@ -46,7 +45,7 @@ class OcrEngine:
         self._lock = asyncio.Lock()
         self._timer: asyncio.TimerHandle | None = None
         self._tasks: set[asyncio.Task] = set()
-        self._last_used = 0.0
+        self._gen = 0
         self.state: State = "unloaded"
         self.last_error: str | None = None
         self._model_info: list[dict] | None = None
@@ -82,6 +81,10 @@ class OcrEngine:
         self.state = "loading"
         try:
             self._ocr = await asyncio.to_thread(self._build)
+        except asyncio.CancelledError:
+            # The build thread may finish later; its result is discarded and the next read reloads.
+            self.state = "unloaded"
+            raise
         except Exception as exc:  # noqa: BLE001 - classify every load failure
             self.state = "error"
             if _is_oom(exc):
@@ -97,17 +100,17 @@ class OcrEngine:
     def _arm_timer(self) -> None:
         if self._timer is not None:
             self._timer.cancel()
-        self._timer = asyncio.get_running_loop().call_later(self._idle_unload_s, self._fire_unload)
+        self._timer = asyncio.get_running_loop().call_later(self._idle_unload_s, self._fire_unload, self._gen)
 
-    def _fire_unload(self) -> None:
-        task = asyncio.get_running_loop().create_task(self._unload_if_idle())
+    def _fire_unload(self, gen: int) -> None:
+        task = asyncio.get_running_loop().create_task(self._unload_if_idle(gen))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-    async def _unload_if_idle(self) -> None:
+    async def _unload_if_idle(self, gen: int) -> None:
         async with self._lock:
-            # A read that ran while we waited for the lock re-armed the timer; honour it.
-            if time.monotonic() - self._last_used < self._idle_unload_s * 0.9:
+            # Any read since the timer was armed bumps the generation; then this unload is stale.
+            if gen != self._gen:
                 return
             self._drop()
 
@@ -119,14 +122,20 @@ class OcrEngine:
     # -- inference ------------------------------------------------------------
     async def read(self, img: np.ndarray) -> list[Block]:
         async with self._lock:
+            self._gen += 1
             if self._timer is not None:
                 self._timer.cancel()
                 self._timer = None
             try:
                 await self._ensure_loaded()
-                return await asyncio.to_thread(self._infer, img)
+                work = asyncio.ensure_future(asyncio.to_thread(self._infer, img))
+                try:
+                    return await asyncio.shield(work)
+                except asyncio.CancelledError:
+                    # Keep the lock until the worker thread is done so inferences never overlap.
+                    await asyncio.wait([work])
+                    raise
             finally:
-                self._last_used = time.monotonic()
                 if self._ocr is not None:
                     self._arm_timer()
 
