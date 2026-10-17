@@ -19,7 +19,7 @@ The OCR port (8738) is only reachable from inside Home Assistant unless you map 
 |---|---|---|
 | `idle_unload_minutes` | 10 | Free the model's memory after this many idle minutes (1 to 1440). The next request reloads it, which takes a few seconds. |
 | `max_side` | 2000 | Longest image side, in pixels, used for reading (640 to 4000). Bigger images are shrunk first. Lower it on low-memory systems. |
-| `log_level` | info | Reserved. The server currently always logs at info level. |
+| `log_level` | info | `debug`, `info`, `warning` or `error`. Images and recognised text are never logged at any level. |
 
 ## What it can read, and what it can't read well
 
@@ -35,15 +35,20 @@ Images and recognised text are never stored or logged, so there is nothing to lo
 
 ## Using without Home Assistant OS
 
-The same image runs anywhere Docker does. Build it from this repository (`scripts/sync-app.sh`, then `docker build --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base-debian:trixie -t local-ocr local_ocr/`) and run it standalone:
+The same image runs anywhere Docker does, and starts in standalone mode when it is not under Home Assistant Supervisor. Build it from this repository (`scripts/sync-app.sh`, then `docker build --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base-debian:trixie -t local-ocr local_ocr/`) and run it. Choose a long random string as the token; the integration needs it too.
 
 ```bash
 docker run -d --name local-ocr --restart unless-stopped -p 8738:8738 \
-  --entrypoint /opt/venv/bin/python local-ocr \
-  -m local_ocr_server --standalone --port 8738
+  -e LOCAL_OCR_TOKEN=<choose-a-long-random-string> local-ocr
 ```
 
-- Optional: add `-e LOCAL_OCR_TOKEN=<secret>` to require `Authorization: Bearer <secret>` on the API. Without it, the server logs a warning that the API is open.
+Without a token the API is unauthenticated, so anything that can reach the port can use it. If you run without one, publish the port on localhost only:
+
+```bash
+docker run -d --name local-ocr --restart unless-stopped -p 127.0.0.1:8738:8738 local-ocr
+```
+
+- Environment variables: `LOCAL_OCR_TOKEN` (requires `Authorization: Bearer <token>`), `PORT` (8738), `IDLE_UNLOAD_MINUTES` (10), `MAX_SIDE` (2000), `LOG_LEVEL` (info).
 - With `--network host` the server advertises itself over zeroconf so the integration can discover it. Otherwise add the integration and enter `http://<this-host>:8738` once.
 - Published images (`ghcr.io/porchlight-ha/local-ocr`) come in a later release.
 

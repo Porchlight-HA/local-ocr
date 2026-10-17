@@ -22,10 +22,8 @@ trap 'rc=$?; cleanup; exit $rc' EXIT
 command -v jq >/dev/null || { echo "FAIL: jq is required" >&2; exit 1; }
 docker image inspect "$image" >/dev/null 2>&1 || { echo "FAIL: image $image not found" >&2; exit 1; }
 
-# Under s6 the image's own entrypoint is /init, so bypass it for the standalone check.
-docker run -d --name "$name" -p "127.0.0.1:$port:8738" \
-  --entrypoint /opt/venv/bin/python "$image" \
-  -m local_ocr_server --standalone --port 8738 >/dev/null
+# Plain docker run: /init starts the s6 service, which falls back to standalone mode without SUPERVISOR_TOKEN.
+docker run -d --name "$name" -p "127.0.0.1:$port:8738" "$image" >/dev/null
 
 ready=0
 for _ in $(seq 1 60); do

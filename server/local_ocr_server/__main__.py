@@ -30,6 +30,14 @@ def load_token(token_file: str | None) -> str | None:
     return None
 
 
+LOG_LEVELS = ("debug", "info", "warning", "error")
+
+
+def _env_log_level() -> str:
+    level = os.environ.get("LOG_LEVEL", "info").strip().lower()
+    return level if level in LOG_LEVELS else "info"
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="local_ocr_server")
     p.add_argument("--port", type=int, default=8738)
@@ -37,7 +45,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--token-file")
     p.add_argument("--idle-unload-minutes", type=float, default=10)
     p.add_argument("--max-side", type=int, default=2000)
-    p.add_argument("--standalone", action="store_true", help="run outside Home Assistant: zeroconf instead of Supervisor discovery")
+    p.add_argument(
+        "--log-level",
+        choices=LOG_LEVELS,
+        type=str.lower,
+        default=_env_log_level(),
+        help="log verbosity (env LOG_LEVEL); images and recognised text are never logged at any level",
+    )
+    p.add_argument(
+        "--standalone",
+        action="store_true",
+        help="run outside Home Assistant: zeroconf instead of Supervisor discovery",
+    )
     return p
 
 
@@ -93,7 +112,7 @@ async def serve(app, host, port, after_listen, stop: asyncio.Event | None = None
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(level=args.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     engine = OcrEngine(
         threads=effective_cpus(),
         idle_unload_s=args.idle_unload_minutes * 60,
