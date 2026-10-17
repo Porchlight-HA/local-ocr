@@ -92,6 +92,37 @@ def test_label_usps_spaces_stripped():
     assert t == [{"carrier": "usps", "number": "9400111899223456789012"}]
 
 
+def test_label_usps_with_words_before_digits():
+    t = apply("label", [B("USPS TRACKING 9400 1118 9922 3333 4444 55")], 800, 600)["tracking"]
+    assert t == [{"carrier": "usps", "number": "9400111899223333444455"}]
+
+
+def test_label_fedex_digit_groups():
+    t = apply("label", [B("FEDEX 1234 5678 9012")], 800, 600)["tracking"]
+    assert t == [{"carrier": "fedex", "number": "123456789012"}]
+
+
+def test_label_ship_to_stacked():
+    blocks = [B("SHIP TO", 40, 100, 80), B("AVERY TESTPERSON", 40, 126, 200), B("123 EXAMPLE AVE", 40, 152, 200),
+              B("FAR AWAY NOTE", 40, 400, 200)]
+    f = apply("label", blocks, 800, 600)
+    assert f["ship_to"]["lines"] == ["AVERY TESTPERSON", "123 EXAMPLE AVE"]
+
+
+def test_label_ship_to_inline():
+    blocks = [B("SHIP TO: AVERY TESTPERSON", 40, 100, 300), B("123 EXAMPLE AVE", 40, 126, 200)]
+    f = apply("label", blocks, 800, 600)
+    assert f["ship_to"]["lines"] == ["AVERY TESTPERSON", "123 EXAMPLE AVE"]
+
+
+def test_or_current_resident_with_ocr_noise_kept():
+    for txt in ("OR CURRENT RESIDENT.", "OR CURRENT RESIDENT 1"):
+        blocks = [B(txt, 200, 170, 250), B("123 EXAMPLE AVE", 200, 200, 230), B("FAKETOWN WA 98999", 200, 230, 250)]
+        f = apply("envelope", blocks, 780, 340)
+        assert f["addressee"]["lines"][0] == txt
+        assert f["generic_addressee"] is True
+
+
 def test_label_fedex_requires_brand():
     assert apply("label", [B("123456789012")], 800, 600)["tracking"] == []
     t = apply("label", [B("FEDEX"), B("123456789012")], 800, 600)["tracking"]

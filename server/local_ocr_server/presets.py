@@ -24,8 +24,6 @@ _MARKER_DEFS = [
 ]
 MARKERS: list[re.Pattern] = [re.compile(p, re.I) for _, p in _MARKER_DEFS]
 _MARKER_NAMES = [n for n, _ in _MARKER_DEFS]
-# Generic addressees are real address lines, so they are reported as markers but never stripped.
-_KEEP_LINE = re.compile(r"OR\s+CURRENT\s+RESIDENT")
 
 GENERIC_ADDRESSEES: list[re.Pattern] = [
     re.compile(p, re.I)
@@ -70,12 +68,19 @@ def _marker_hits(text: str) -> list[str]:
 
 def _is_marker_only(text: str) -> bool:
     """True when the line is a postal marker and carries no other words."""
-    if not _marker_hits(text) or _KEEP_LINE.fullmatch(text.strip().upper()):
-        return False
+    hits = _marker_hits(text)
+    if not hits or hits == ["OR CURRENT RESIDENT"]:
+        return False  # generic addressee text stays a line, whatever OCR noise surrounds it
     rest = text
     for pat in MARKERS:
         rest = pat.sub(" ", rest)
     return not re.search(r"[A-Za-z]", rest)
+
+
+def _norm_line(text: str) -> str:
+    """Strip punctuation, collapse spaces, drop trailing digit-only noise tokens."""
+    t = re.sub(r"\s+", " ", re.sub(r"[^\w ]", " ", text)).strip()
+    return re.sub(r"(\s+\d+)+$", "", t)
 
 
 def _fields(lines: list[_G]) -> dict | None:
@@ -122,7 +127,7 @@ def _envelope(blocks: list[Block], width: int, height: int) -> dict:
         if groups:
             addr = max(groups, key=lambda grp: (len(grp), sum(g.b.confidence for g in grp)))
 
-    generic = any(p.match(re.sub(r"\s+", " ", re.sub(r"[^\w ]", " ", g.text)).strip()) for g in addr for p in GENERIC_ADDRESSEES)
+    generic = any(p.match(_norm_line(g.text)) for g in addr for p in GENERIC_ADDRESSEES)
     return {
         "addressee": _fields(addr),
         "return_address": _fields(ret),
@@ -143,13 +148,13 @@ def _label(blocks: list[Block], width: int, height: int) -> dict:
             found.append(item)
 
     for t in texts:
-        s = re.sub(r"\s+", "", t)
-        for m in _UPS.finditer(s):
+        joined = re.sub(r"(?<=\d) (?=\d)", "", t)  # join only gaps between digits
+        for m in _UPS.finditer(t):
             add("ups", m.group(0))
-        for m in _USPS.finditer(s):
+        for m in _USPS.finditer(joined):
             add("usps", m.group(0))
         if "FEDEX" in allt:
-            for m in _FEDEX.finditer(t):
+            for m in _FEDEX.finditer(joined):
                 add("fedex", m.group(0))
         if "DHL" in allt:
             for m in _DHL.finditer(t):
@@ -157,6 +162,7 @@ def _label(blocks: list[Block], width: int, height: int) -> dict:
 
     ship_to = None
     gs = sorted((_G(b, width, height) for b in blocks if b.text.strip()), key=lambda g: (g.cy, g.cx))
+    med = statistics.median(g.height for g in gs) if gs else 1
     for i, g in enumerate(gs):
         m = _SHIP_TO.match(g.text)
         if not m:
@@ -170,6 +176,9 @@ def _label(blocks: list[Block], width: int, height: int) -> dict:
             if abs(nxt.left - g.left) > 0.05 * width and not lines:
                 continue
             if lines and abs(nxt.left - lines[0].left) > 0.05 * width:
+                break
+            prev = lines[-1] if lines else g
+            if max(nxt.top - prev.bottom, 0) >= 2 * med:
                 break
             lines.append(nxt)
         ship_to = _fields(lines)
