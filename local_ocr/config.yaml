@@ -1,6 +1,6 @@
 name: Local OCR
 slug: local_ocr
-version: 0.2.0
+version: 0.3.0
 description: Offline OCR for Home Assistant. Reads text from images on this device, with no cloud service.
 url: https://github.com/Porchlight-HA/local-ocr
 arch:
@@ -10,7 +10,7 @@ init: false
 watchdog: "http://[HOST]:[PORT:8738]/v1/health"
 hassio_api: true
 discovery:
-  - local_ocr
+  - text_reader
 ports:
   8738/tcp: null
 ports_description:

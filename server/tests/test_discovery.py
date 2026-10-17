@@ -60,7 +60,7 @@ async def test_announce_posts_expected_body(sup_env, fake_supervisor):
     async with aiohttp.ClientSession() as s:
         assert await announce_supervisor(s, "TOKEN", 8738) is True
     assert fake_supervisor["body"] == {
-        "service": "local_ocr",
+        "service": "text_reader",
         "config": {"host": "abcd1234-local-ocr", "port": 8738, "token": "TOKEN"},
     }
     assert all(auth == "Bearer sup-secret" for _, _, auth in fake_supervisor["seen"])

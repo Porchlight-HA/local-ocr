@@ -1,6 +1,6 @@
 # Local OCR
 
-Local OCR reads text from images, entirely on this device. It is a small HTTP server (RapidOCR on onnxruntime, with PP-OCR models baked into the App) that the **Local OCR** integration talks to. No cloud service is involved and nothing is downloaded at run time.
+Local OCR reads text from images, entirely on this device. It is a small HTTP server (RapidOCR on onnxruntime, with PP-OCR models baked into the App) that the **Text Reader** integration talks to. No cloud service is involved and nothing is downloaded at run time.
 
 ## Privacy
 
@@ -9,7 +9,7 @@ Images and recognised text are processed in memory and are never stored or logge
 ## Setup
 
 1. Install and start the App.
-2. Home Assistant announces it through discovery. Add the **Local OCR** integration when prompted (no fields to fill in).
+2. Home Assistant announces it through discovery. Add the **Text Reader** integration when prompted (no fields to fill in).
 
 The OCR port (8738) is only reachable from inside Home Assistant unless you map it in the App's network settings.
 

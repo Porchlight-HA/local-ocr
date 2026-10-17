@@ -56,7 +56,7 @@ async def announce_supervisor(session: aiohttp.ClientSession, token: str, port: 
     headers = {"Authorization": f"Bearer {sup}"}
     try:
         hostname = await _own_hostname(session, headers)
-        body = {"service": "local_ocr", "config": {"host": hostname, "port": port, "token": token}}
+        body = {"service": "text_reader", "config": {"host": hostname, "port": port, "token": token}}
         async with session.post(f"{SUPERVISOR}/discovery", json=body, headers=headers, timeout=_TIMEOUT) as resp:
             resp.raise_for_status()
     except (aiohttp.ClientError, TimeoutError, KeyError, TypeError, ValueError) as err:

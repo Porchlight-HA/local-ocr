@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+- The App now announces itself to Home Assistant as `text_reader`: the integration was renamed from Local OCR to Text Reader. Update the integration to 0.3.0 along with the App.
+
 ## 0.2.0
 
 - Reading every frame of a large phone photo (MPO) works; it used to fail with "could not decode the image".
