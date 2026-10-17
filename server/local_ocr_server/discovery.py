@@ -29,6 +29,7 @@ def load_or_create_token(path: str) -> str:
     token = secrets.token_urlsafe(32)
     p.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
     with os.fdopen(fd, "w") as f:
         f.write(token)
     os.chmod(p, 0o600)
