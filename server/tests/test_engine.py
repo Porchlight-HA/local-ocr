@@ -257,3 +257,34 @@ async def test_model_info_and_engine_name(sample_img):
     e = OcrEngine(threads=2)
     info = e.model_info()
     assert info and all(len(m["sha256"]) == 64 and m["name"].endswith(".onnx") for m in info)
+
+
+@pytest.mark.parametrize("error", [MemoryError(), RuntimeError("onnxruntime: Failed to allocate memory for requested buffer")])
+async def test_inference_oom_raises_out_of_memory_and_keeps_model(monkeypatch, error):
+    from local_ocr_server.engine import OutOfMemory
+
+    class Boom:
+        def __call__(self, img):
+            raise error
+
+    monkeypatch.setattr(engine_mod, "RapidOCR", lambda params: Boom())
+    e = OcrEngine(threads=1)
+    with pytest.raises(OutOfMemory) as ei:
+        await e.read(IMG)
+    assert str(ei.value).startswith("out of memory: ")
+    assert "requested buffer" not in str(ei.value)  # never echo the underlying message
+    assert e.state == "ready" and e.last_error is None
+    await e.close()
+
+
+async def test_inference_other_error_is_not_out_of_memory(monkeypatch):
+    class Boom:
+        def __call__(self, img):
+            raise ValueError("bad shape")
+
+    monkeypatch.setattr(engine_mod, "RapidOCR", lambda params: Boom())
+    e = OcrEngine(threads=1)
+    with pytest.raises(ValueError):
+        await e.read(IMG)
+    assert e.state == "ready"
+    await e.close()
