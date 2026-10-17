@@ -13,6 +13,8 @@ Images and recognised text are processed in memory and are never stored or logge
 
 The OCR port (8738) is only reachable from inside Home Assistant unless you map it in the App's network settings.
 
+If the server crashes three times within ten minutes, the App stops, and Home Assistant's watchdog restarts it (the App's `watchdog` checks `/v1/health`).
+
 ## Options
 
 | Option | Default | Meaning |
@@ -52,6 +54,18 @@ docker run -d --name local-ocr --restart unless-stopped -p 127.0.0.1:8738:8738 l
 - With `--network host` the server advertises itself over zeroconf so the integration can discover it. Otherwise add the integration and enter `http://<this-host>:8738` once.
 - Published images (`ghcr.io/porchlight-ha/local-ocr`) come in a later release.
 
+## API (for use without the integration)
+
+All paths are under `/v1`. With a token set, every path except `/v1/health` needs `Authorization: Bearer <token>`.
+
+- `GET /v1/health`: `{"status": "ok", "model_state": "unloaded" | "loading" | "ready" | "error", "detail": <text or null>, "memory": {"oom_kills": <int>, "last_oom": <ISO 8601 time or null>}}`. It never loads the model. `memory.oom_kills` is the container's out-of-memory kill count (cgroup v2; 0 when unavailable), `memory.last_oom` the last time a read ran out of memory.
+- `GET /v1/info`: version, `api` (1), architecture, engine, models, presets, languages and limits.
+- `POST /v1/read`: multipart with an `image` part, or JSON with `image_b64`. Optional fields: `preset`, `lang`, `min_confidence`, `region` (`x,y,w,h` in pixels), `frame`, `all_frames`.
+  - The response has `width`, `height` (the original image size, after EXIF rotation), `ms`, `engine`, `model`, `text`, `blocks` (`text`, `confidence`, `box`, `line`), `preset` and `fields`.
+  - `text` has one line per visual line. Blocks on the same line are joined with a space; lines are separated by `\n`.
+  - With `all_frames=true` the response is `{"frames": [<one response as above per frame>], "text": "<the frames' text joined with \n\n>"}` and has no other top-level fields.
+  - Limits: 10 MB and 40 megapixels (`413 too_large`); undecodable images give `415 unsupported_image`; a full queue gives `503 busy` with `Retry-After`. A read that runs out of memory gives `500 model_error` with a message starting `out of memory:`.
+
 ## Troubleshooting
 
 Each entry matches a repair shown by the integration.
@@ -59,5 +73,5 @@ Each entry matches a repair shown by the integration.
 - **`app_not_running`**: the App is stopped. Start it from the App page (Home Assistant OS) or run `docker start local-ocr` (Container installs). Check the App log for the reason it stopped.
 - **`app_outdated`**: the integration needs a newer App API. Update or rebuild the Local OCR App to the version the repair names.
 - **`model_failed`**: the OCR model failed to load. Restart the App. If it persists, reinstall it; models are bundled, so no download is needed.
-- **`low_memory`**: the system ran out of memory while reading. Close other apps, or lower `max_side` in the options.
+- **`low_memory`**: in the last hour the App ran out of memory: loading the model or reading an image failed, or the system killed the server (it restarts on its own). Close other apps, or lower `max_side` in the options.
 - **`unsupported_arch`**: only 64-bit systems (aarch64 and amd64) are supported.
