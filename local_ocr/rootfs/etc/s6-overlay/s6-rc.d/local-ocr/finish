@@ -1,0 +1,25 @@
+#!/bin/bash
+# s6 finish script. $1 is the server's exit code (256 when it was killed by a signal), $2 the signal.
+# A clean exit (0) or a signal (256, e.g. an out-of-memory kill or shutdown) lets s6 restart the server.
+# A crash is counted; after 3 crashes within 10 minutes the App halts, and Supervisor's watchdog
+# (config.yaml `watchdog`) restarts it.
+code="${1:-0}"
+signal="${2:-0}"
+echo "Local OCR server exited with code ${code} (signal ${signal})"
+
+if [ "$code" -ne 0 ] && [ "$code" -ne 256 ]; then
+    state=/run/local-ocr-crashes
+    now="$(date +%s)"
+    read -r count first 2>/dev/null < "$state" || { count=0; first="$now"; }
+    if [ $((now - first)) -gt 600 ]; then
+        count=0
+        first="$now"
+    fi
+    count=$((count + 1))
+    echo "$count $first" > "$state"
+    if [ "$count" -ge 3 ]; then
+        echo "Local OCR server crashed ${count} times in 10 minutes; stopping the App"
+        echo "$code" > /run/s6-linux-init-container-results/exitcode 2>/dev/null || true
+        exec /run/s6/basedir/bin/halt
+    fi
+fi
