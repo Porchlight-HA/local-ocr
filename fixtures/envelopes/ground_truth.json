@@ -1,0 +1,186 @@
+[
+ {
+  "id": "env00",
+  "kind": "business",
+  "addressee": [
+   "TAYLOR DEMOUSER",
+   "123 EXAMPLE AVE",
+   "SAMPLETON OH 45999-1234"
+  ],
+  "return": [
+   "COUNTY OF EXAMPLE TREASURER",
+   "100 MAIN ST RM 5",
+   "EXAMPLEVILLE TX 79999"
+  ],
+  "markers": []
+ },
+ {
+  "id": "env01",
+  "kind": "window",
+  "addressee": [
+   "RILEY PLACEHOLDER",
+   "1010 FICTION BLVD",
+   "FAKETOWN WA 98999-0001"
+  ],
+  "return": [
+   "ACME UTILITY CO",
+   "PO BOX 98765",
+   "SAMPLETON OH 45999-8765"
+  ],
+  "markers": [
+   "IMPORTANT TAX DOCUMENT ENCLOSED"
+  ]
+ },
+ {
+  "id": "env02",
+  "kind": "bulk",
+  "addressee": [
+   "POSTAL CUSTOMER",
+   "89 PLACEHOLDER LN",
+   "DEMOCITY MN 55999"
+  ],
+  "return": [],
+  "markers": [
+   "PRSRT STD",
+   "PERMIT NO 1234",
+   "FINAL NOTICE: ACT NOW",
+   "ECRWSS"
+  ]
+ },
+ {
+  "id": "env03",
+  "kind": "handwritten",
+  "addressee": [
+   "Avery Q Testperson",
+   "4567 Sample Rd Apt 2B",
+   "Exampleville Tx 79999"
+  ],
+  "return": [
+   "Riley Placeholder",
+   "123 Example Ave",
+   "Exampleville Tx 79999"
+  ],
+  "markers": []
+ },
+ {
+  "id": "env04",
+  "kind": "typewriter",
+  "addressee": [
+   "AVERY Q TESTPERSON",
+   "123 EXAMPLE AVE",
+   "SAMPLETON OH 45999-1234"
+  ],
+  "return": [
+   "FIRST FICTIONAL BANK",
+   "PO BOX 4321",
+   "DEMOCITY MN 55999"
+  ],
+  "markers": []
+ },
+ {
+  "id": "env05",
+  "kind": "postcard",
+  "addressee": [
+   "RESIDENTIAL CUSTOMER",
+   "SAMPLETON OH 45999-1234"
+  ],
+  "return": [],
+  "markers": [
+   "20% OFF",
+   "ECRWSS",
+   "PRSRT MKTG"
+  ]
+ },
+ {
+  "id": "env06",
+  "kind": "business",
+  "addressee": [
+   "CASEY FICTIONAL",
+   "1010 FICTION BLVD",
+   "EXAMPLEVILLE TX 79999"
+  ],
+  "return": [
+   "ACME UTILITY CO",
+   "PO BOX 98765",
+   "SAMPLETON OH 45999-8765"
+  ],
+  "markers": []
+ },
+ {
+  "id": "env07",
+  "kind": "window",
+  "addressee": [
+   "AVERY Q TESTPERSON",
+   "123 EXAMPLE AVE",
+   "EXAMPLEVILLE TX 79999"
+  ],
+  "return": [
+   "CONTOSO HEALTH PLAN",
+   "PO BOX 7070",
+   "SAMPLETON OH 45999"
+  ],
+  "markers": [
+   "IMPORTANT TAX DOCUMENT ENCLOSED"
+  ]
+ },
+ {
+  "id": "env08",
+  "kind": "bulk",
+  "addressee": [
+   "OR CURRENT RESIDENT",
+   "123 EXAMPLE AVE",
+   "FAKETOWN WA 98999-0001"
+  ],
+  "return": [],
+  "markers": [
+   "PRSRT STD",
+   "PERMIT NO 1234",
+   "FINAL NOTICE: ACT NOW",
+   "AUTO"
+  ]
+ },
+ {
+  "id": "env09",
+  "kind": "handwritten",
+  "addressee": [
+   "Taylor Demouser",
+   "89 Placeholder Ln",
+   "Faketown Wa 98999-0001"
+  ],
+  "return": [
+   "Morgan Example",
+   "89 Placeholder Ln",
+   "Democity Mn 55999"
+  ],
+  "markers": []
+ },
+ {
+  "id": "env10",
+  "kind": "typewriter",
+  "addressee": [
+   "CASEY FICTIONAL",
+   "4567 SAMPLE RD APT 2B",
+   "EXAMPLEVILLE TX 79999"
+  ],
+  "return": [
+   "NORTHWIND INSURANCE",
+   "PO BOX 1111",
+   "FAKETOWN WA 98999-1111"
+  ],
+  "markers": []
+ },
+ {
+  "id": "env11",
+  "kind": "postcard",
+  "addressee": [
+   "RESIDENTIAL CUSTOMER",
+   "FAKETOWN WA 98999-0001"
+  ],
+  "return": [],
+  "markers": [
+   "20% OFF",
+   "ECRWSS",
+   "PRSRT MKTG"
+  ]
+ }
+]
