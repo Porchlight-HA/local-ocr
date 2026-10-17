@@ -1,6 +1,7 @@
 """Token persistence, Supervisor discovery (managed mode) and zeroconf (standalone mode)."""
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 import secrets
@@ -66,7 +67,7 @@ async def announce_supervisor(session: aiohttp.ClientSession, token: str, port: 
 
 
 def local_ipv4_addresses() -> list[str]:
-    """Non-loopback IPv4 addresses of this host."""
+    """IPv4 addresses of this host that other LAN devices can reach (no loopback, link-local or unspecified)."""
     found: list[str] = []
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
@@ -79,7 +80,16 @@ def local_ipv4_addresses() -> list[str]:
             found.append(s.getsockname()[0])
     except OSError:
         pass
-    return sorted({a for a in found if not a.startswith("127.") and a != "0.0.0.0"})  # noqa: S104
+    return sorted({a for a in found if _advertisable(a)})
+
+
+def _advertisable(addr: str) -> bool:
+    # 169.254/16 is a self-assigned address (no DHCP); advertising it sends Home Assistant to a dead end.
+    try:
+        ip = ipaddress.IPv4Address(addr)
+    except ValueError:
+        return False
+    return not (ip.is_loopback or ip.is_link_local or ip.is_unspecified)
 
 
 async def advertise_zeroconf(port: int, token_required: bool) -> AsyncZeroconf | None:

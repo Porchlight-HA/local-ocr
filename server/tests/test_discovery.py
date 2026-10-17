@@ -180,3 +180,27 @@ async def test_announce_happens_after_server_is_listening(sup_env, aiohttp_serve
     stop.set()
     await run
     assert health == {"status": 200}
+
+
+def test_local_addresses_skip_link_local_and_loopback(monkeypatch):
+    infos = [(socket.AF_INET, 0, 0, "", (a, 0)) for a in ("169.254.12.7", "127.0.1.1", "192.168.1.5", "0.0.0.0")]
+    monkeypatch.setattr(discovery.socket, "getaddrinfo", lambda *a, **k: infos)
+
+    class _Sock:
+        def __init__(self, *a):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def connect(self, _addr):
+            pass
+
+        def getsockname(self):
+            return ("169.254.99.1", 5555)
+
+    monkeypatch.setattr(discovery.socket, "socket", _Sock)
+    assert discovery.local_ipv4_addresses() == ["192.168.1.5"]
