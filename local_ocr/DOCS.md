@@ -13,7 +13,7 @@ Images and recognised text are processed in memory and are never stored or logge
 
 The OCR port (8738) is only reachable from inside Home Assistant unless you map it in the App's network settings.
 
-If the server crashes three times within ten minutes, the App stops, and Home Assistant's watchdog restarts it (the App's `watchdog` checks `/v1/health`).
+If the server crashes, it restarts on its own. After three crashes within ten minutes the App stops. Turn on **Watchdog** on the App's page to have Home Assistant restart it then too (the watchdog checks `/v1/health`).
 
 ## Options
 
@@ -52,7 +52,7 @@ docker run -d --name local-ocr --restart unless-stopped -p 127.0.0.1:8738:8738 l
 
 - Environment variables: `LOCAL_OCR_TOKEN` (requires `Authorization: Bearer <token>`), `PORT` (8738), `IDLE_UNLOAD_MINUTES` (10), `MAX_SIDE` (2000), `LOG_LEVEL` (info).
 - With `--network host` the server advertises itself over zeroconf so the integration can discover it. Otherwise add the integration and enter `http://<this-host>:8738` once.
-- Published images (`ghcr.io/porchlight-ha/local-ocr`) come in a later release.
+- Published images come in a later release, one per architecture: `ghcr.io/porchlight-ha/amd64-local-ocr` and `ghcr.io/porchlight-ha/aarch64-local-ocr` (the naming Home Assistant uses for App images). Until then, build the image as above.
 
 ## API (for use without the integration)
 

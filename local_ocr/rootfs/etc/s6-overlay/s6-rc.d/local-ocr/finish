@@ -2,7 +2,7 @@
 # s6 finish script. $1 is the server's exit code (256 when it was killed by a signal), $2 the signal.
 # A clean exit (0) or a signal (256, e.g. an out-of-memory kill or shutdown) lets s6 restart the server.
 # A crash is counted; after 3 crashes within 10 minutes the App halts, and Supervisor's watchdog
-# (config.yaml `watchdog`) restarts it.
+# (config.yaml `watchdog`, when the user has turned Watchdog on) restarts it.
 code="${1:-0}"
 signal="${2:-0}"
 echo "Local OCR server exited with code ${code} (signal ${signal})"

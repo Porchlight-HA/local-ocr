@@ -25,14 +25,19 @@ docker image inspect "$image" >/dev/null 2>&1 || { echo "FAIL: image $image not 
 # Plain docker run: /init starts the s6 service, which falls back to standalone mode without SUPERVISOR_TOKEN.
 docker run -d --name "$name" -p "127.0.0.1:$port:8738" "$image" >/dev/null
 
+running() { [ "$(docker inspect -f '{{.State.Running}}' "$name" 2>/dev/null)" = true ]; }
+
 ready=0
 for _ in $(seq 1 60); do
-  if curl -fsS "http://127.0.0.1:$port/v1/health" >/dev/null 2>&1; then ready=1; break; fi
+  if curl -fsS --max-time 5 "http://127.0.0.1:$port/v1/health" >/dev/null 2>&1; then ready=1; break; fi
+  running || { echo "FAIL: the container exited before /v1/health came up" >&2; exit 1; }
   sleep 1
 done
 [ "$ready" = 1 ] || { echo "FAIL: /v1/health did not come up within 60 s" >&2; exit 1; }
 
-resp="$(curl -fsS -F "image=@$fixture" -F preset=envelope "http://127.0.0.1:$port/v1/read")"
+# The first read loads the model; 120 s is far above a cold load on a CI runner.
+resp="$(curl -fsS --max-time 120 -F "image=@$fixture" -F preset=envelope "http://127.0.0.1:$port/v1/read")" \
+  || { echo "FAIL: /v1/read failed or took longer than 120 s" >&2; exit 1; }
 got="$(printf '%s' "$resp" | jq -r '.fields.generic_addressee')"
 [ "$got" = "true" ] || { echo "FAIL: fields.generic_addressee = $got, expected true" >&2; exit 1; }
 

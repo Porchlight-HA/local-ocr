@@ -20,7 +20,7 @@ jobs:
             runner: ubuntu-24.04
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Sync server into the App folder
         run: scripts/sync-app.sh
       - name: Build
@@ -36,12 +36,13 @@ jobs:
           docker run -d --name latency -p 127.0.0.1:8738:8738 local-ocr:ci
           up=0
           for _ in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:8738/v1/health >/dev/null 2>&1; then up=1; break; fi
+            if curl -fsS --max-time 5 http://127.0.0.1:8738/v1/health >/dev/null 2>&1; then up=1; break; fi
+            if [ "$(docker inspect -f '{{.State.Running}}' latency)" != true ]; then echo "FAIL: container exited"; docker logs latency | tail -n 30; exit 1; fi
             sleep 1
           done
           if [ "${up}" != 1 ]; then echo "FAIL: /v1/health never came up"; exit 1; fi
           read_once() {
-            curl -fsS -o /dev/null -w '%{time_total}\n' \
+            curl -fsS --max-time 120 -o /dev/null -w '%{time_total}\n' \
               -F image=@fixtures/envelopes/env02_id.jpg -F preset=envelope \
               http://127.0.0.1:8738/v1/read
           }

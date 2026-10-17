@@ -4,9 +4,9 @@ An offline OCR server packaged as a Home Assistant App (formerly "add-on"). It r
 
 Usage, options, privacy and troubleshooting are in [`local_ocr/DOCS.md`](local_ocr/DOCS.md).
 
-## Install as a Local App (0.1)
+## Install as a Local App
 
-0.1 publishes no image, so Supervisor builds it on the device. Copy the App folder to the `addons` share (Samba or SSH) after syncing the server into it:
+No image is published yet, so Supervisor builds it on the device. Copy the App folder to the `addons` share (Samba or SSH) after syncing the server into it:
 
 ```bash
 scripts/sync-app.sh              # copies server/ into local_ocr/server/ (gitignored)
