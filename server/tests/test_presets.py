@@ -142,6 +142,19 @@ def test_meter_value():
     assert apply("meter", [B("0 1 2 3 4,5")], 400, 100)["value"] == 1234.5
 
 
+@pytest.mark.parametrize(("text", "value"), [
+    ("1,234.5", 1234.5),   # ',' thousands, '.' decimal
+    ("1.234,5", 1234.5),   # '.' thousands, ',' decimal
+    ("1234,5", 1234.5),    # lone ',' not followed by exactly 3 digits: decimal
+    ("1,234", 1234.0),     # lone ',' followed by exactly 3 digits, no '.': thousands
+    ("1234.5", 1234.5),
+    ("1,234,567", 1234567.0),
+    ("1.234.567", 1234567.0),
+])
+def test_meter_separators(text, value):
+    assert apply("meter", [B(text)], 400, 100)["value"] == value
+
+
 def test_meter_picks_most_digits_and_empty():
     f = apply("meter", [B("kWh"), B("00123"), B("7")], 400, 100)
     assert f["value"] == 123.0 and f["digits"] == "00123"

@@ -186,13 +186,36 @@ def _label(blocks: list[Block], width: int, height: int) -> dict:
     return {"tracking": found, "ship_to": ship_to}
 
 
+def _normalise_number(s: str) -> str:
+    """Make a meter reading float()-able. Separator rules:
+
+    - both ',' and '.' present: the one that appears last is the decimal separator, the other the thousands
+      separator ("1,234.5" and "1.234,5" are both 1234.5);
+    - only ',': a single ',' followed by exactly three digits at the end is a thousands separator ("1,234" is
+      1234); otherwise ',' is the decimal separator ("1234,5" is 1234.5);
+    - only '.': unchanged;
+    - the same separator more than once with no other ("1,234,567", "1.234.567"): thousands separators.
+    """
+    if "," in s and "." in s:
+        dec, thou = (",", ".") if s.rfind(",") > s.rfind(".") else (".", ",")
+        return s.replace(thou, "").replace(dec, ".")
+    for sep in (",", "."):
+        if s.count(sep) > 1:
+            return s.replace(sep, "")
+    if "," in s:
+        if re.fullmatch(r"\d+,\d{3}", s):
+            return s.replace(",", "")
+        return s.replace(",", ".")
+    return s
+
+
 def _meter(blocks: list[Block]) -> dict:
     best, best_n = None, 0
     for b in blocks:
         cleaned = re.sub(r"[^0-9.,]", "", b.text)
         n = sum(c.isdigit() for c in cleaned)
         if n > best_n:
-            best, best_n = (cleaned.replace(",", "."), b), n
+            best, best_n = (_normalise_number(cleaned), b), n
     if best is None:
         return {"value": None, "digits": "", "confidence": 0.0}
     digits, block = best
