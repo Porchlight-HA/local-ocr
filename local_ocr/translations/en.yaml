@@ -1,0 +1,12 @@
+configuration:
+  idle_unload_minutes:
+    name: Idle unload (minutes)
+    description: Free the model's memory after this many minutes without a request. The next request reloads it, which takes a few seconds.
+  max_side:
+    name: Maximum image size (pixels)
+    description: Larger images are shrunk so their longest side is this many pixels before reading. Lower it if the system runs low on memory.
+  log_level:
+    name: Log level
+    description: How much the App writes to its log. Currently informational only; the server always logs at info level. Images and recognised text are never logged.
+network:
+  8738/tcp: OCR API (only needed for access from outside Home Assistant)
