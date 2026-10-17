@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        working-directory: server
+        run: pip install -e ".[test]" ruff mypy
+      - name: Ruff
+        working-directory: server
+        run: ruff check .
+      - name: Mypy
+        working-directory: server
+        run: mypy local_ocr_server
+      - name: Pytest (including golden accuracy tests)
+        working-directory: server
+        run: python -m pytest -q
+
+  hadolint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: local_ocr/Dockerfile

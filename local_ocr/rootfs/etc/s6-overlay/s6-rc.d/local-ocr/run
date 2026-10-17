@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bashio
+# shellcheck shell=bash
+# The server has no log-level setting yet, so the log_level option is not passed on (always INFO).
+bashio::log.info "Starting Local OCR on port 8738"
+exec /opt/venv/bin/python -m local_ocr_server \
+    --port 8738 \
+    --token-file /data/token \
+    --idle-unload-minutes "$(bashio::config 'idle_unload_minutes')" \
+    --max-side "$(bashio::config 'max_side')"

@@ -1,0 +1,53 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+          - arch: amd64
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync server into the App folder
+        run: scripts/sync-app.sh
+      - name: Build
+        run: >
+          docker build
+          --build-arg BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base-debian:trixie
+          -t local-ocr:ci local_ocr/
+      - name: Smoke test
+        run: tests/smoke.sh local-ocr:ci
+      - name: Latency check (arm only)
+        if: matrix.arch == 'aarch64'
+        run: |
+          docker run -d --name latency -p 127.0.0.1:8738:8738 \
+            --entrypoint /opt/venv/bin/python local-ocr:ci \
+            -m local_ocr_server --standalone --port 8738
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8738/v1/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          read_once() {
+            curl -fsS -o /dev/null -w '%{time_total}\n' \
+              -F image=@fixtures/envelopes/env02_id.jpg -F preset=envelope \
+              http://127.0.0.1:8738/v1/read
+          }
+          read_once >/dev/null   # warm-up: loads the model
+          for _ in $(seq 1 7); do read_once; done | sort -n > times.txt
+          median_ms="$(awk '{a[NR]=$1} END {printf "%d", a[int((NR+1)/2)]*1000}' times.txt)"
+          echo "median ms: ${median_ms}"
+          docker rm -f latency >/dev/null
+          [ "${median_ms}" -lt 1500 ]

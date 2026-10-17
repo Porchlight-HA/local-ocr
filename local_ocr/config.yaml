@@ -1,0 +1,24 @@
+name: Local OCR
+slug: local_ocr
+version: 0.1.0
+description: Offline OCR for Home Assistant. Reads text from images on this device, with no cloud service.
+url: https://github.com/Porchlight-HA/local-ocr
+arch:
+  - aarch64
+  - amd64
+init: false
+hassio_api: true
+discovery:
+  - local_ocr
+ports:
+  8738/tcp: null
+ports_description:
+  8738/tcp: OCR API (only needed for access from outside Home Assistant)
+options:
+  idle_unload_minutes: 10
+  max_side: 2000
+  log_level: info
+schema:
+  idle_unload_minutes: int(1,1440)
+  max_side: int(640,4000)
+  log_level: list(debug|info|warning|error)
