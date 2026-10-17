@@ -1,5 +1,6 @@
 # Build context is the App folder (local_ocr/). Run scripts/sync-app.sh first so ./server exists.
 ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-debian:trixie
+# hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]

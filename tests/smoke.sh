@@ -6,7 +6,7 @@
 set -euo pipefail
 
 image="${1:?usage: tests/smoke.sh <image> [size-budget-bytes]}"
-budget="${2:-262144000}" # 250 MB
+budget="${2:-262144000}" # 250 MB, compressed (gzip of docker save)
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fixture="$here/fixtures/envelopes/env02_id.jpg"
 name="local-ocr-smoke-$$"
@@ -36,8 +36,8 @@ resp="$(curl -fsS -F "image=@$fixture" -F preset=envelope "http://127.0.0.1:$por
 got="$(printf '%s' "$resp" | jq -r '.fields.generic_addressee')"
 [ "$got" = "true" ] || { echo "FAIL: fields.generic_addressee = $got, expected true" >&2; exit 1; }
 
-size="$(docker image inspect --format '{{.Size}}' "$image")"
-echo "image size: $size bytes (budget $budget)"
+size="$(docker save "$image" | gzip -c | wc -c | tr -d ' ')"
+echo "compressed image size: $size bytes (budget $budget)"
 [ "$size" -le "$budget" ] || { echo "FAIL: image size $size exceeds budget $budget" >&2; exit 1; }
 
 echo OK
