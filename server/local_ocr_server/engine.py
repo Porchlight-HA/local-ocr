@@ -7,7 +7,7 @@ import logging
 import os
 from dataclasses import dataclass
 from importlib.metadata import version
-from typing import Literal
+from typing import Any, Literal
 
 import cv2
 import numpy as np
@@ -145,11 +145,14 @@ class OcrEngine:
         if max(h, w) > self._max_side:
             scale = self._max_side / max(h, w)
             img = cv2.resize(img, (round(w * scale), round(h * scale)), interpolation=cv2.INTER_AREA)
-        out = self._ocr(img)
+        ocr = self._ocr
+        if ocr is None:  # unreachable: callers load the model first
+            return []
+        out: Any = ocr(img)
         if out is None or out.boxes is None or out.txts is None:
             return []
         items = []
-        for box, text, conf in zip(out.boxes, out.txts, out.scores):
+        for box, text, conf in zip(out.boxes, out.txts, out.scores, strict=False):
             pts = [[int(round(x / scale)), int(round(y / scale))] for x, y in np.asarray(box).reshape(-1, 2)]
             items.append((pts, str(text), min(1.0, max(0.0, float(conf)))))
         return _assign_lines(items)

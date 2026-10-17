@@ -25,7 +25,7 @@ docker build --build-arg BUILD_FROM=ghcr.io/home-assistant/aarch64-base-debian:t
 tests/smoke.sh local-ocr:dev     # prints OK
 ```
 
-Use `amd64-base-debian` on x86 hosts. Server unit and golden tests: `server/scripts/test.sh` (Docker).
+Use `amd64-base-debian` on x86 hosts. To run it without Home Assistant, see "Using without Home Assistant OS" in `local_ocr/DOCS.md` (set `LOCAL_OCR_TOKEN`, or publish the port on 127.0.0.1 only). Server unit and golden tests: `server/scripts/test.sh` (Docker).
 
 ## Layout
 

@@ -7,6 +7,6 @@ configuration:
     description: Larger images are shrunk so their longest side is this many pixels before reading. Lower it if the system runs low on memory.
   log_level:
     name: Log level
-    description: How much the App writes to its log. Currently informational only; the server always logs at info level. Images and recognised text are never logged.
+    description: How much the App writes to its log. Images and recognised text are never logged at any level.
 network:
   8738/tcp: OCR API (only needed for access from outside Home Assistant)

@@ -19,8 +19,8 @@ import time
 import warnings
 
 import numpy as np
-from aiohttp import web
-from PIL import Image, ImageOps, ImageSequence, UnidentifiedImageError
+from aiohttp import BodyPartReader, web
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from . import presets
 from .engine import ENGINE_NAME, Block, ModelError, OcrEngine
@@ -124,6 +124,8 @@ async def _parse_request(request: web.Request) -> tuple[bytes, dict]:
         try:
             reader = await request.multipart()
             async for part in reader:
+                if not isinstance(part, BodyPartReader):
+                    raise ValueError("nested multipart")
                 if part.name == "image":
                     data = await _read_stream(lambda p=part: p.read_chunk(_CHUNK), MAX_BYTES, _TOO_LARGE)
                 else:

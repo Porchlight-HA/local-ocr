@@ -70,7 +70,7 @@ def local_ipv4_addresses() -> list[str]:
     found: list[str] = []
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            found.append(info[4][0])
+            found.append(str(info[4][0]))
     except OSError:
         pass
     try:  # the address used for the default route, even if the hostname resolves to loopback

@@ -33,21 +33,24 @@ jobs:
       - name: Latency check (arm only)
         if: matrix.arch == 'aarch64'
         run: |
-          docker run -d --name latency -p 127.0.0.1:8738:8738 \
-            --entrypoint /opt/venv/bin/python local-ocr:ci \
-            -m local_ocr_server --standalone --port 8738
+          docker run -d --name latency -p 127.0.0.1:8738:8738 local-ocr:ci
+          up=0
           for _ in $(seq 1 60); do
-            curl -fsS http://127.0.0.1:8738/v1/health >/dev/null 2>&1 && break
+            if curl -fsS http://127.0.0.1:8738/v1/health >/dev/null 2>&1; then up=1; break; fi
             sleep 1
           done
+          if [ "${up}" != 1 ]; then echo "FAIL: /v1/health never came up"; exit 1; fi
           read_once() {
             curl -fsS -o /dev/null -w '%{time_total}\n' \
               -F image=@fixtures/envelopes/env02_id.jpg -F preset=envelope \
               http://127.0.0.1:8738/v1/read
           }
           read_once >/dev/null   # warm-up: loads the model
-          for _ in $(seq 1 7); do read_once; done | sort -n > times.txt
-          median_ms="$(awk '{a[NR]=$1} END {printf "%d", a[int((NR+1)/2)]*1000}' times.txt)"
-          echo "median ms: ${median_ms}"
-          docker rm -f latency >/dev/null
-          [ "${median_ms}" -lt 1500 ]
+          # 7 timed samples; the first is dropped as residual warm-up, the median of the other 6 is checked.
+          for _ in $(seq 1 7); do read_once; done | tail -n +2 | sort -n > times.txt
+          median_ms="$(awk '{a[NR]=$1} END {printf "%d", (a[int(NR/2)]+a[int(NR/2)+1])/2*1000}' times.txt)"
+          echo "median ms: ${median_ms} (limit 1500)"
+          if [ "${median_ms}" -lt 1500 ]; then echo "PASS"; else echo "FAIL: median ${median_ms} ms >= 1500 ms"; exit 1; fi
+      - name: Cleanup
+        if: always()
+        run: docker rm -f latency >/dev/null 2>&1 || true

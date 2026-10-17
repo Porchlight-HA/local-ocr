@@ -17,4 +17,6 @@ RUN /opt/venv/bin/pip install --no-cache-dir /tmp/server \
 
 COPY rootfs /
 
+ENV PATH=/opt/venv/bin:$PATH
+
 EXPOSE 8738

@@ -63,7 +63,7 @@ class _G:
 
 
 def _marker_hits(text: str) -> list[str]:
-    return [name for name, pat in zip(_MARKER_NAMES, MARKERS) if pat.search(text)]
+    return [name for name, pat in zip(_MARKER_NAMES, MARKERS, strict=False) if pat.search(text)]
 
 
 def _is_marker_only(text: str) -> bool:
@@ -164,12 +164,12 @@ def _label(blocks: list[Block], width: int, height: int) -> dict:
     gs = sorted((_G(b, width, height) for b in blocks if b.text.strip()), key=lambda g: (g.cy, g.cx))
     med = statistics.median(g.height for g in gs) if gs else 1
     for i, g in enumerate(gs):
-        m = _SHIP_TO.match(g.text)
-        if not m:
+        sm = _SHIP_TO.match(g.text)
+        if not sm:
             continue
         lines: list[_G] = []
-        if m.group(1).strip():
-            lines.append(_G(Block(m.group(1).strip(), g.b.confidence, g.b.box, g.b.line), width, height))
+        if sm.group(1).strip():
+            lines.append(_G(Block(sm.group(1).strip(), g.b.confidence, g.b.box, g.b.line), width, height))
         for nxt in gs[i + 1:]:
             if len(lines) >= 5:
                 break
