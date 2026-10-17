@@ -21,3 +21,18 @@ COPY rootfs /
 ENV PATH=/opt/venv/bin:$PATH
 
 EXPOSE 8738
+
+# Supervisor passes BUILD_ARCH and BUILD_VERSION to App builds; plain docker builds get the defaults.
+ARG BUILD_ARCH=unknown
+ARG BUILD_VERSION=dev
+LABEL org.opencontainers.image.title="Local OCR" \
+      org.opencontainers.image.description="Offline OCR server for Home Assistant (RapidOCR on onnxruntime)." \
+      org.opencontainers.image.source="https://github.com/Porchlight-HA/local-ocr" \
+      org.opencontainers.image.url="https://github.com/Porchlight-HA/local-ocr" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="Porchlight-HA" \
+      org.opencontainers.image.version="${BUILD_VERSION}" \
+      io.hass.name="Local OCR" \
+      io.hass.type="addon" \
+      io.hass.arch="${BUILD_ARCH}" \
+      io.hass.version="${BUILD_VERSION}"
