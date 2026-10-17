@@ -308,6 +308,30 @@ async def test_big_mpo_draft_decode(aiohttp_client):
     assert eng.calls[-1][:2] == (1250, 2500) and j["blocks"][0]["box"][0] == [20, 20]
 
 
+def _mpo(*sizes) -> bytes:
+    buf = io.BytesIO()
+    frames = [Image.new("RGB", s, "white") for s in sizes]
+    frames[0].save(buf, "MPO", save_all=True, append_images=frames[1:], quality=50)
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize("sizes", [
+    [(5000, 2500), (640, 320)],    # drafted first frame, small second frame
+    [(5000, 2500), (5000, 2500)],  # both drafted
+    [(640, 320), (5000, 2500)],    # small first frame, drafted second frame
+])
+async def test_mpo_all_frames_draft_per_frame(aiohttp_client, sizes):
+    # A draft (reduced-scale JPEG decode) on one frame must not carry over to the next after seek.
+    eng = FakeEngine()
+    c = await aiohttp_client(create_app(eng, None, __version__))
+    r = await post_raw(c, _mpo(*sizes), all_frames="true")
+    assert r.status == 200, await r.text()
+    j = await r.json()
+    assert [(f["width"], f["height"]) for f in j["frames"]] == sizes
+    want = [(h // 2, w // 2) if w > 4000 else (h, w) for w, h in sizes]
+    assert [call[:2] for call in eng.calls] == want
+
+
 async def test_small_jpeg_not_drafted(aiohttp_client):
     eng = FakeEngine()
     c = await aiohttp_client(create_app(eng, None, __version__))
@@ -462,3 +486,28 @@ async def test_internal_error_log_has_no_text(caplog, aiohttp_client, small_png)
     assert r.status == 500 and secret not in await r.text()
     assert secret not in caplog.text
     assert not any(rec.exc_info for rec in caplog.records)
+
+
+async def test_multipart_part_count_capped(client, small_png):
+    form = aiohttp.FormData()
+    form.add_field("image", small_png, filename="x.png", content_type="image/png")
+    for i in range(app_mod.MAX_PARTS):
+        form.add_field(f"junk{i}", "x")
+    r = await client.post("/v1/read", data=form)
+    j = await r.json()
+    assert r.status == 400 and j["error"] == "bad_request" and "too many" in j["message"]
+    assert client.app["engine"].calls == []
+
+
+async def test_multipart_at_part_cap_accepted(client, small_png):
+    fields = {f"junk{i}": "x" for i in range(app_mod.MAX_PARTS - 1)}
+    r = await post_raw(client, small_png, **fields)
+    assert r.status == 200
+
+
+async def test_multipart_duplicate_image_rejected(client, small_png):
+    form = aiohttp.FormData()
+    for _ in range(2):
+        form.add_field("image", small_png, filename="x.png", content_type="image/png")
+    r = await client.post("/v1/read", data=form)
+    assert r.status == 400 and "more than one" in (await r.json())["message"]

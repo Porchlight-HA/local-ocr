@@ -102,6 +102,22 @@ def test_label_fedex_digit_groups():
     assert t == [{"carrier": "fedex", "number": "123456789012"}]
 
 
+def test_label_fedex_join_only_4_digit_groups():
+    # A ZIP and a phone number on one line must not fuse into a 12-digit FedEx number.
+    for txt in ("FEDEX 98101 1234567", "FEDEX 12345 6789012", "FEDEX 123 456 789 012", "FEDEX 12 3456 7890 12"):
+        assert apply("label", [B(txt)], 800, 600)["tracking"] == [], txt
+
+
+def test_label_fedex_15_digits_grouped():
+    t = apply("label", [B("FEDEX 1234 5678 9012 345")], 800, 600)["tracking"]
+    assert t == [{"carrier": "fedex", "number": "123456789012345"}]
+
+
+def test_label_ups_spaced_not_matched():
+    # Documented limit: UPS numbers are matched only when OCR reads them without spaces.
+    assert apply("label", [B("1Z 999 AA1 01 2345 6784")], 800, 600)["tracking"] == []
+
+
 def test_label_ship_to_stacked():
     blocks = [B("SHIP TO", 40, 100, 80), B("AVERY TESTPERSON", 40, 126, 200), B("123 EXAMPLE AVE", 40, 152, 200),
               B("FAR AWAY NOTE", 40, 400, 200)]

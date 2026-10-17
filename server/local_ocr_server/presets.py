@@ -44,6 +44,9 @@ _UPS = re.compile(r"\b1Z[0-9A-Z]{16}\b")
 _USPS = re.compile(r"\b(9[2-5]\d{18,20}|[A-Z]{2}\d{9}US)\b")
 _FEDEX = re.compile(r"\b(\d{12}|\d{15})\b")
 _DHL = re.compile(r"\b\d{10}\b")
+# Carriers print long numbers in 4-digit groups ("9400 1118 9922 ... 12", "1234 5678 9012"). Only such runs
+# are joined: joining any digit gap would fuse unrelated numbers (a ZIP and a phone number) into a false match.
+_DIGIT_GROUPS = re.compile(r"\b\d{4}(?: \d{4})+(?: \d{1,3})?\b")
 _SHIP_TO = re.compile(r"^\s*SHIP\s*TO\b[:\s]*(.*)$", re.I)
 
 
@@ -148,7 +151,7 @@ def _label(blocks: list[Block], width: int, height: int) -> dict:
             found.append(item)
 
     for t in texts:
-        joined = re.sub(r"(?<=\d) (?=\d)", "", t)  # join only gaps between digits
+        joined = _DIGIT_GROUPS.sub(lambda m: m.group(0).replace(" ", ""), t)
         for m in _UPS.finditer(t):
             add("ups", m.group(0))
         for m in _USPS.finditer(joined):

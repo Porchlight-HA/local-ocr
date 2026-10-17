@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 
 import numpy as np
 from aiohttp import BodyPartReader, web
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageFile, ImageOps, UnidentifiedImageError
 
 from . import presets
 from .engine import ENGINE_NAME, Block, ModelError, OcrEngine, OutOfMemory
@@ -38,6 +38,7 @@ MAX_SIDE = 4000
 MAX_WAITING = 4
 LANGS = ["en"]
 _FIELD_LIMIT = 4096
+MAX_PARTS = 16  # the API defines 7 fields; anything far beyond that is not a real client
 _CHUNK = 64 * 1024
 _B64_LIMIT = MAX_BYTES * 4 // 3 + _CHUNK + 4 * _CHUNK  # base64 of the max image plus JSON overhead
 MAX_PIXELS = 40_000_000  # 6000x6000 fits; beyond this decoding alone needs too much memory on a Pi
@@ -140,10 +141,16 @@ async def _parse_request(request: web.Request) -> tuple[bytes, dict]:
         fields: dict = {}
         try:
             reader = await request.multipart()
+            count = 0
             async for part in reader:
+                count += 1
+                if count > MAX_PARTS:
+                    raise ApiError(400, "bad_request", f"too many multipart parts (max {MAX_PARTS})")
                 if not isinstance(part, BodyPartReader):
                     raise ValueError("nested multipart")
                 if part.name == "image":
+                    if data is not None:
+                        raise ApiError(400, "bad_request", "more than one 'image' part")
                     data = await _read_stream(lambda p=part: p.read_chunk(_CHUNK), MAX_BYTES, _too_large)
                 else:
                     raw = await _read_stream(
@@ -283,6 +290,10 @@ def _frame_array(im: Image.Image, index: int, max_side: int, last: bool) -> tupl
     """
     try:
         im.seek(index)
+        # Pillow keeps a previous frame's draft scale across seek (MPO re-reads the size and tile but
+        # not decoderconfig), which would decode this frame at the wrong scale. Start each frame clean.
+        if isinstance(im, ImageFile.ImageFile):
+            im.decoderconfig = ()
         orientation = _orientation(im)
         w, h = im.size
         size = (h, w) if orientation in (5, 6, 7, 8) else (w, h)
