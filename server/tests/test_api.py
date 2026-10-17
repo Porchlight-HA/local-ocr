@@ -271,3 +271,44 @@ async def test_logs_contain_no_text(caplog, real_client, env02_id):
     for b in j["blocks"]:
         assert b["text"] not in caplog.text
     assert "POST /v1/read 200" in caplog.text
+
+
+async def test_lines_are_one_based(client, small_png):
+    j = await post_img(client, small_png, min_confidence="0.1")
+    assert [b["line"] for b in j["blocks"]] == [1, 2, 3]  # fake engine emits 0,1,2
+
+
+async def test_too_many_frames(client):
+    frames = [Image.new("P", (8, 8), 0) for i in range(51)]
+    for i, f in enumerate(frames):
+        f.putpixel((i % 8, i // 8), 5)
+    buf = io.BytesIO()
+    frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:])
+    r = await post_raw(client, buf.getvalue(), all_frames="true")
+    j = await r.json()
+    assert r.status == 413 and j == {"error": "too_large", "message": "too many frames"}
+    assert client.app["engine"].calls == []
+    ok = io.BytesIO()
+    frames[0].save(ok, "GIF", save_all=True, append_images=frames[1:50])
+    assert (await post_raw(client, ok.getvalue(), all_frames="true")).status == 200
+
+
+async def test_non_finite_params_400(client, small_png):
+    for kw in ({"region": "inf,0,10,10"}, {"region": "nan,0,10,10"}, {"frame": "inf"}):
+        r = await post_raw(client, small_png, **kw)
+        assert r.status == 400, kw
+    for body in ('{"image_b64": "%s", "region": [1e999, 0, 10, 10]}', '{"image_b64": "%s", "frame": 1e999}'):
+        r = await client.post(
+            "/v1/read", data=body % base64.b64encode(small_png).decode(), headers={"Content-Type": "application/json"}
+        )
+        assert r.status == 400 and (await r.json())["error"] == "bad_request"
+
+
+async def test_internal_error_log_has_no_text(caplog, aiohttp_client, small_png):
+    caplog.set_level(logging.DEBUG)
+    secret = "SECRETWORD123"
+    c = await aiohttp_client(create_app(FakeEngine(error=ValueError(f"int('{secret}')")), None, __version__))
+    r = await post_raw(c, small_png)
+    assert r.status == 500 and secret not in await r.text()
+    assert secret not in caplog.text
+    assert not any(rec.exc_info for rec in caplog.records)

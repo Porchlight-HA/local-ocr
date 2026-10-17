@@ -82,8 +82,9 @@ async def _errors(request: web.Request, handler):
     except web.HTTPException as exc:
         code = {404: "not_found", 405: "method_not_allowed", 413: "too_large"}.get(exc.status, "bad_request")
         return _err(exc.status, code, exc.reason or code)
-    except Exception:  # noqa: BLE001 - never leak details (could contain user content)
-        _LOGGER.exception("unhandled error in %s %s", request.method, request.path)
+    except Exception as exc:  # noqa: BLE001 - never leak details (could contain user content)
+        # Privacy: the message/traceback may embed recognised text, so log the type only.
+        _LOGGER.error("unhandled %s in %s %s", type(exc).__name__, request.method, request.path)
         return _err(500, "internal_error", "internal error")
 
 
@@ -194,14 +195,14 @@ def _parse_params(fields: dict) -> _Params:
             parts = [int(float(p)) for p in (raw if isinstance(raw, list) else str(raw).split(","))]
             if len(parts) != 4 or parts[2] <= 0 or parts[3] <= 0 or parts[0] < 0 or parts[1] < 0:
                 raise ValueError
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             raise ApiError(400, "bad_request", "region must be 'x,y,w,h' in pixels (w,h > 0)") from None
         region = (parts[0], parts[1], parts[2], parts[3])
     try:
         frame = int(fields.get("frame", 0))
         if frame < 0:
             raise ValueError
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         raise ApiError(400, "bad_request", "frame must be a non-negative integer") from None
     return _Params(preset, min_conf, region, frame, _as_bool(fields.get("all_frames", False)))
 
@@ -220,18 +221,33 @@ def _to_array(im: Image.Image) -> np.ndarray:
     return np.ascontiguousarray(np.asarray(im)[:, :, ::-1])
 
 
-def _decode(data: bytes, frame: int, all_frames: bool) -> list[np.ndarray]:
+MAX_FRAMES = 50
+
+
+def _open(data: bytes, frame: int, all_frames: bool) -> tuple[Image.Image, list[int]]:
+    """Open the image and return it with the frame indices to read (nothing is decoded yet)."""
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             im = Image.open(io.BytesIO(data))
-            n = getattr(im, "n_frames", 1)
-            if all_frames:
-                return [_to_array(f) for f in ImageSequence.Iterator(im)]
-            if frame >= n:
-                raise ApiError(400, "bad_request", f"frame {frame} out of range (image has {n})")
-            im.seek(frame)
-            return [_to_array(im)]
+        n = getattr(im, "n_frames", 1)
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+        raise ApiError(413, "too_large", "image has too many pixels") from exc
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError, EOFError) as exc:
+        raise ApiError(415, "unsupported_image", "could not decode the image") from exc
+    if all_frames:
+        if n > MAX_FRAMES:
+            raise ApiError(413, "too_large", "too many frames")
+        return im, list(range(n))
+    if frame >= n:
+        raise ApiError(400, "bad_request", f"frame {frame} out of range (image has {n})")
+    return im, [frame]
+
+
+def _frame_array(im: Image.Image, index: int) -> np.ndarray:
+    try:
+        im.seek(index)
+        return _to_array(im)
     except (Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
         raise ApiError(413, "too_large", "image has too many pixels") from exc
     except (UnidentifiedImageError, OSError, SyntaxError, ValueError, EOFError) as exc:
@@ -299,7 +315,7 @@ async def _recognise(engine: OcrEngine, img: np.ndarray, p: _Params, model: str,
         "model": model,
         "text": "\n".join(b.text for b in out),
         "blocks": [
-            {"text": b.text, "confidence": round(b.confidence, 4), "box": b.box, "line": b.line} for b in out
+            {"text": b.text, "confidence": round(b.confidence, 4), "box": b.box, "line": b.line + 1} for b in out
         ],
         "preset": p.preset,
         "fields": fields,
@@ -317,10 +333,11 @@ async def _read(request: web.Request) -> web.Response:
         async with app["sem"]:
             engine: OcrEngine = app["engine"]
             started = time.monotonic()
-            frames = await asyncio.to_thread(_decode, data, p.frame, p.all_frames)
+            im, indices = await asyncio.to_thread(_open, data, p.frame, p.all_frames)
             model = await asyncio.to_thread(_model_name, engine)
             results = []
-            for img in frames:
+            for index in indices:  # decode and recognise one frame at a time
+                img = await asyncio.to_thread(_frame_array, im, index)
                 results.append(await _recognise(engine, img, p, model, started))
                 started = time.monotonic()
     finally:
