@@ -1,6 +1,8 @@
 # Third-party notices
 
-Local OCR bundles or depends on the following. None are GPL or restricted-weight.
+Our code (the `local_ocr_server` package, the App files and the integration) is MIT licensed; see `LICENSE`. The App image also contains third-party components, each under its own licence. The App ships no restricted-weight models.
+
+## Direct dependencies
 
 | Component | Licence | Use |
 |---|---|---|
@@ -8,7 +10,18 @@ Local OCR bundles or depends on the following. None are GPL or restricted-weight
 | PP-OCR ONNX models (PaddlePaddle / PaddleOCR, shipped in `rapidocr`) | Apache-2.0 | Detection, classification, recognition models |
 | onnxruntime | MIT | Inference runtime |
 | OpenCV (`opencv-python-headless`) | Apache-2.0 | Image resizing |
-| NumPy | BSD-3-Clause | Arrays |
+| NumPy | BSD-3-Clause (bundled parts: 0BSD, MIT, Zlib, CC0-1.0; the wheel also bundles OpenBLAS, BSD-3-Clause, and libgfortran, GPL-3.0 with the GCC Runtime Library Exception) | Arrays |
+| Pillow | MIT-CMU (HPND) | Image decoding |
+| aiohttp | Apache-2.0 (parts MIT) | HTTP server and client |
+| zeroconf (`python-zeroconf`) | LGPL-2.1-or-later | mDNS advertising in standalone mode |
+
+The `opencv-python-headless` wheel bundles FFmpeg libraries (`libavcodec`, `libavformat`, `libavutil` and others) under the LGPL-2.1-or-later, plus other libraries listed in its `LICENSE-3RD-PARTY.txt`. They are unmodified, dynamically loaded shared libraries.
+
+Other Python packages pulled in by the above (versions as built for 0.1): aiohappyeyeballs (PSF-2.0), aiosignal, frozenlist, multidict, propcache, yarl, flatbuffers, requests (Apache-2.0); attrs, charset-normalizer, colorlog, ifaddr, pyclipper, PyYAML, six, urllib3 (MIT); idna, protobuf, Shapely, omegaconf (BSD-3-Clause); packaging (Apache-2.0 or BSD-2-Clause); certifi (MPL-2.0); tqdm (MPL-2.0 and MIT).
+
+## Base image
+
+The App is built on `ghcr.io/home-assistant/{arch}-base-debian:trixie` and installs Debian's `python3`, `python3-venv` and `libgomp1`. The Debian system packages in the image (for example bash, coreutils and the GCC runtime libraries) are distributed under their own licences, some of them GPL; their copyright files are in `/usr/share/doc/<package>/copyright` inside the image. The s6-overlay init system from the base image is ISC licensed.
 
 ## Test fixture fonts (not shipped in the App)
 
