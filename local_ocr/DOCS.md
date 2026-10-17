@@ -9,7 +9,9 @@ Images and recognised text are processed in memory and are never stored or logge
 ## Setup
 
 1. Install and start the App.
-2. Home Assistant announces it through discovery. Add the **Text Reader** integration when prompted (no fields to fill in).
+2. The App pairs with the **Text Reader** integration (version 0.3.0 or later), which Home Assistant auto-discovers: add Text Reader when prompted (no fields to fill in). Text Reader can also install this App for you from its own setup.
+
+Text Reader can read with this App, with an AI assistant, or with both. The App needs a 64-bit system (aarch64 or amd64) and 2 GB+ of RAM; a Pi 4 reads an Informed Delivery-sized image in about 4.5 s.
 
 The OCR port (8738) is only reachable from inside Home Assistant unless you map it in the App's network settings.
 

@@ -2,7 +2,8 @@
 
 ## 0.3.0
 
-- The App now announces itself to Home Assistant as `text_reader`: the integration was renamed from Local OCR to Text Reader. Update the integration to 0.3.0 along with the App.
+- The App now announces itself to Home Assistant as `text_reader`: the integration was renamed from Local OCR to Text Reader. Update the integration to 0.3.0 along with the App. If you used the 0.2 "Local OCR" integration, remove it and add Text Reader (the domain changed; there is no migration).
+- The App itself is unchanged and keeps its name, slug and API (v1). Text Reader 0.3 can also pair it with an AI assistant, or fall back to one for hard images.
 
 ## 0.2.0
 
