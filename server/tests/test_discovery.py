@@ -118,11 +118,15 @@ async def test_zeroconf_failure_returns_none(monkeypatch):
     assert await advertise_zeroconf(8738, False) is None
 
 
+async def _noop(captured, app):
+    captured.update(app=app)
+
+
 def test_main_modes(monkeypatch, tmp_path):
     from local_ocr_server import __main__ as m
 
     captured = {}
-    monkeypatch.setattr(m.web, "run_app", lambda app, **k: captured.update(app=app))
+    monkeypatch.setattr(m, "serve", lambda app, *a, **k: _noop(captured, app))
     monkeypatch.setattr(m, "OcrEngine", lambda **k: object())
     monkeypatch.setattr(m, "create_app", lambda e, t, v: captured.update(token=t) or m.web.Application())
 
@@ -135,3 +139,44 @@ def test_main_modes(monkeypatch, tmp_path):
     m.main(["--standalone"])
     assert captured["token"] == "ignored"
     assert captured["app"]["standalone"] is True
+
+
+async def test_announce_happens_after_server_is_listening(sup_env, aiohttp_server, monkeypatch):
+    import asyncio
+
+    from local_ocr_server import __main__ as m
+    from local_ocr_server.app import create_app
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    health = {}
+
+    async def info(request):
+        return web.json_response({"data": {"hostname": "h"}})
+
+    async def post(request):
+        try:
+            async with aiohttp.ClientSession() as s, s.get(f"http://127.0.0.1:{port}/v1/health") as r:
+                health["status"] = r.status
+        except aiohttp.ClientError as err:
+            health["error"] = repr(err)
+        return web.json_response({})
+
+    sup = web.Application()
+    sup.router.add_get("/addons/self/info", info)
+    sup.router.add_post("/discovery", post)
+    server = await aiohttp_server(sup)
+    monkeypatch.setattr(discovery, "SUPERVISOR", f"http://127.0.0.1:{server.port}")
+
+    app = create_app(MagicMock(close=AsyncMock(), state="idle", last_error=None), "tok", "test")
+    after = m.make_after_listen(app, True, "tok", port)
+    stop = asyncio.Event()
+    run = asyncio.create_task(m.serve(app, "127.0.0.1", port, after, stop))
+    for _ in range(100):
+        if health:
+            break
+        await asyncio.sleep(0.05)
+    stop.set()
+    await run
+    assert health == {"status": 200}

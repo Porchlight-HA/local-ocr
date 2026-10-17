@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import logging
 import os
+import signal
 from pathlib import Path
 
 import aiohttp
@@ -39,6 +41,56 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def make_after_listen(app: web.Application, managed: bool, token: str | None, port: int):
+    """Return the coroutine function that announces the service once the server is listening."""
+    log = logging.getLogger(__name__)
+    if managed:
+
+        async def announce(_app: web.Application) -> None:
+            async with aiohttp.ClientSession() as session:
+                await announce_supervisor(session, token or "", port)
+
+        return announce
+
+    async def advertise(app: web.Application) -> None:
+        app["zeroconf"] = await advertise_zeroconf(port, token_required=token is not None)
+
+    async def unadvertise(app: web.Application) -> None:
+        az = app.get("zeroconf")
+        if az is not None:
+            try:
+                await az.async_unregister_all_services()
+                await az.async_close()
+            except Exception:  # noqa: BLE001
+                log.warning("Zeroconf shutdown failed")
+
+    app.on_cleanup.append(unadvertise)
+    return advertise
+
+
+async def serve(app, host, port, after_listen, stop: asyncio.Event | None = None) -> None:
+    """Run the app; start discovery only after the site is accepting connections."""
+    runner = web.AppRunner(app, access_log=None)
+    await runner.setup()
+    task = None
+    try:
+        await web.TCPSite(runner, host, port).start()
+        task = asyncio.create_task(after_listen(app))
+        stop = stop or asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, stop.set)
+            except (NotImplementedError, RuntimeError):
+                pass
+        await stop.wait()
+    finally:
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        await runner.cleanup()
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -57,30 +109,8 @@ def main(argv: list[str] | None = None) -> None:
     app = create_app(engine, token, __version__)
     app["standalone"] = not managed
 
-    if managed:
-
-        async def _announce(_app: web.Application) -> None:
-            async with aiohttp.ClientSession() as session:
-                await announce_supervisor(session, token, args.port)
-
-        app.on_startup.append(_announce)
-    else:
-
-        async def _advertise(app: web.Application) -> None:
-            app["zeroconf"] = await advertise_zeroconf(args.port, token_required=token is not None)
-
-        async def _unadvertise(app: web.Application) -> None:
-            az = app.get("zeroconf")
-            if az is not None:
-                try:
-                    await az.async_unregister_all_services()
-                    await az.async_close()
-                except Exception:  # noqa: BLE001
-                    logging.getLogger(__name__).warning("Zeroconf shutdown failed")
-
-        app.on_startup.append(_advertise)
-        app.on_cleanup.append(_unadvertise)
-    web.run_app(app, host=args.host, port=args.port, access_log=None)
+    after_listen = make_after_listen(app, managed, token, args.port)
+    asyncio.run(serve(app, args.host, args.port, after_listen))
 
 
 if __name__ == "__main__":
