@@ -9,7 +9,7 @@ Images and recognised text are processed in memory and are never stored or logge
 ## Setup
 
 1. Install and start the App.
-2. The App pairs with the **Text Reader** integration (version 0.3.0 or later), which Home Assistant auto-discovers: add Text Reader when prompted (no fields to fill in). Text Reader's setup tries to install this App for you; that needs this repository (Porchlight-HA/local-ocr) to be public and installable, otherwise it shows the manual steps and waits for the app. On a Pi 4 the first build took about 3 minutes in testing.
+2. The App pairs with the **Text Reader** integration (version 0.3.0 or later), which Home Assistant auto-discovers: add Text Reader when prompted (no fields to fill in). Text Reader's setup tries to install this App for you; if it can't, it shows the manual steps and waits for the app. The App installs as a prebuilt image (`ghcr.io/porchlight-ha/{arch}-local-ocr`), so there's no build on your device.
 
 Text Reader can read with this App, with an AI assistant, or with both. The App needs a 64-bit system (aarch64 or amd64) and 2 GB+ of RAM; a Pi 4 reads an Informed Delivery-sized image in about 4.5 s.
 

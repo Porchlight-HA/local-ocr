@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Installs a prebuilt image (`ghcr.io/porchlight-ha/{arch}-local-ocr`) instead of building on your device, so installing takes seconds of download instead of minutes of building. No other changes.
+
 ## 0.3.0
 
 - The App now announces itself to Home Assistant as `text_reader`: the integration was renamed from Local OCR to Text Reader. Update the integration to 0.3.0 along with the App. If you used the 0.2 "Local OCR" integration, remove it and add Text Reader (the domain changed; there is no migration).
