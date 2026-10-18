@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+          - arch: amd64
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    env:
+      IMAGE: ghcr.io/porchlight-ha/${{ matrix.arch }}-local-ocr
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Tag must match the App version
+        id: version
+        run: |
+          version="$(sed -n 's/^version: *//p' local_ocr/config.yaml | tr -d '"')"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "FAIL: tag ${GITHUB_REF_NAME} does not match config.yaml version ${version}"; exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - name: Sync server into the App folder
+        run: scripts/sync-app.sh
+      - name: Build
+        run: >
+          docker build
+          --build-arg BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base-debian:trixie
+          --label io.hass.version=${{ steps.version.outputs.version }}
+          --label io.hass.type=addon
+          --label io.hass.arch=${{ matrix.arch }}
+          --label org.opencontainers.image.source=https://github.com/Porchlight-HA/local-ocr
+          --label org.opencontainers.image.licenses=MIT
+          --label "org.opencontainers.image.description=Local OCR app for Home Assistant (Text Reader)"
+          -t "${IMAGE}:${{ steps.version.outputs.version }}"
+          local_ocr/
+      - name: Smoke test
+        run: tests/smoke.sh "${IMAGE}:${{ steps.version.outputs.version }}"
+      - name: Push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${GH_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+          docker tag "${IMAGE}:${{ steps.version.outputs.version }}" "${IMAGE}:latest"
+          docker push "${IMAGE}:${{ steps.version.outputs.version }}"
+          docker push "${IMAGE}:latest"
